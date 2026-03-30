@@ -3,10 +3,11 @@
 -- ║          Auto Parry (Blade Ball)         ║
 -- ╚══════════════════════════════════════════╝
 
-local UI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Tiooprime2/TiooBladeV1/main/ui.lua"))()
+-- Ambil UI dari _G, bukan load ulang
+local UI = _G.TiooBladeUI
 
-local Players         = game:GetService("Players")
-local RunService      = game:GetService("RunService")
+local Players           = game:GetService("Players")
+local RunService        = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local localPlayer = Players.LocalPlayer
@@ -23,10 +24,7 @@ local lastParry        = 0
 -- ═══════════════════════════════════════════
 -- UTILITY
 -- ═══════════════════════════════════════════
-
--- Cari remote parry/deflect di game
 local function getParryRemote()
-    -- Blade Ball biasanya pake RemoteEvent bernama "Parry" atau "Deflect"
     local remotes = ReplicatedStorage:FindFirstChild("Remotes")
         or ReplicatedStorage:FindFirstChild("Events")
         or ReplicatedStorage
@@ -42,15 +40,12 @@ local function getParryRemote()
     return nil
 end
 
--- Cari bola aktif di workspace
 local function findBalls()
     local balls = {}
     for _, obj in pairs(workspace:GetDescendants()) do
-        -- Blade Ball bola biasanya bernama "Ball", "Blade", atau punya tag tertentu
         if obj:IsA("BasePart") then
             local name = obj.Name:lower()
             if name:find("ball") or name:find("blade") or name:find("projectile") then
-                -- Pastiin bukan bagian karakter sendiri
                 if not obj:IsDescendantOf(character) then
                     table.insert(balls, obj)
                 end
@@ -60,7 +55,6 @@ local function findBalls()
     return balls
 end
 
--- Hitung jarak ke bola
 local function distanceTo(part)
     if not rootPart or not part or not part.Parent then return math.huge end
     return (rootPart.Position - part.Position).Magnitude
@@ -69,8 +63,8 @@ end
 -- ═══════════════════════════════════════════
 -- CORE AUTO PARRY
 -- ═══════════════════════════════════════════
-local PARRY_DISTANCE = 20   -- jarak trigger (studs)
-local PARRY_COOLDOWN = 0.3  -- cooldown antar parry (detik)
+local PARRY_DISTANCE = 20
+local PARRY_COOLDOWN = 0.3
 
 local function doParry()
     local now = tick()
@@ -79,13 +73,9 @@ local function doParry()
 
     local parryRemote = getParryRemote()
     if parryRemote then
-        -- Fire remote parry ke server
         parryRemote:FireServer()
     else
-        -- Fallback: simulasi klik/input parry lewat VirtualInputManager jika remote tidak ketemu
-        -- (beberapa game pake InputBegan listener di LocalScript)
         local VIM = game:GetService("VirtualInputManager")
-        -- Blade Ball default parry = klik kiri / tap
         VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
         task.wait(0.05)
         VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
@@ -98,7 +88,6 @@ local function startAutoParry()
     parryConnection = RunService.Heartbeat:Connect(function()
         if not autoParryEnabled then return end
 
-        -- Update karakter kalau respawn
         character = localPlayer.Character
         if not character then return end
         rootPart = character:FindFirstChild("HumanoidRootPart")
@@ -106,10 +95,9 @@ local function startAutoParry()
 
         local balls = findBalls()
         for _, ball in pairs(balls) do
-            local dist = distanceTo(ball)
-            if dist <= PARRY_DISTANCE then
+            if distanceTo(ball) <= PARRY_DISTANCE then
                 doParry()
-                break -- cukup 1x parry per frame
+                break
             end
         end
     end)
@@ -123,7 +111,7 @@ local function stopAutoParry()
 end
 
 -- ═══════════════════════════════════════════
--- UI — TAMBAH KE COMBAT PAGE
+-- UI
 -- ═══════════════════════════════════════════
 UI.createSection(UI.combatPage, "Auto Combat")
 
@@ -143,7 +131,7 @@ UI.createToggle(
 )
 
 -- ═══════════════════════════════════════════
--- CLEANUP saat UI ditutup / karakter respawn
+-- CLEANUP
 -- ═══════════════════════════════════════════
 UI.onClose(function()
     autoParryEnabled = false
@@ -153,7 +141,6 @@ end)
 localPlayer.CharacterAdded:Connect(function(char)
     character = char
     rootPart  = char:WaitForChild("HumanoidRootPart")
-    -- restart loop kalau sedang aktif
     if autoParryEnabled then
         startAutoParry()
     end
