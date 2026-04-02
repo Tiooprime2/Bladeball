@@ -3,7 +3,6 @@
 -- ║          Auto Parry (Blade Ball)         ║
 -- ╚══════════════════════════════════════════╝
 
--- Ambil UI dari _G, bukan load ulang
 local UI = _G.TiooBladeUI
 
 local Players           = game:GetService("Players")
@@ -15,6 +14,12 @@ local character   = localPlayer.Character or localPlayer.CharacterAdded:Wait()
 local rootPart    = character:WaitForChild("HumanoidRootPart")
 
 -- ═══════════════════════════════════════════
+-- REMOTE — langsung ambil ParryAttempt
+-- ═══════════════════════════════════════════
+local Remotes      = ReplicatedStorage:WaitForChild("Remotes")
+local ParryAttempt = Remotes:WaitForChild("ParryAttempt")
+
+-- ═══════════════════════════════════════════
 -- STATE
 -- ═══════════════════════════════════════════
 local autoParryEnabled = false
@@ -22,24 +27,8 @@ local parryConnection  = nil
 local lastParry        = 0
 
 -- ═══════════════════════════════════════════
--- UTILITY
+-- UTILITY — cari bola aktif di workspace
 -- ═══════════════════════════════════════════
-local function getParryRemote()
-    local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-        or ReplicatedStorage:FindFirstChild("Events")
-        or ReplicatedStorage
-
-    for _, v in pairs(remotes:GetDescendants()) do
-        if v:IsA("RemoteEvent") then
-            local name = v.Name:lower()
-            if name:find("parry") or name:find("deflect") or name:find("block") then
-                return v
-            end
-        end
-    end
-    return nil
-end
-
 local function findBalls()
     local balls = {}
     for _, obj in pairs(workspace:GetDescendants()) do
@@ -63,23 +52,14 @@ end
 -- ═══════════════════════════════════════════
 -- CORE AUTO PARRY
 -- ═══════════════════════════════════════════
-local PARRY_DISTANCE = 20
-local PARRY_COOLDOWN = 0.3
+local PARRY_DISTANCE = 25
+local PARRY_COOLDOWN = 0.35
 
 local function doParry()
     local now = tick()
     if now - lastParry < PARRY_COOLDOWN then return end
     lastParry = now
-
-    local parryRemote = getParryRemote()
-    if parryRemote then
-        parryRemote:FireServer()
-    else
-        local VIM = game:GetService("VirtualInputManager")
-        VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-        task.wait(0.05)
-        VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-    end
+    ParryAttempt:FireServer()
 end
 
 local function startAutoParry()
@@ -93,8 +73,7 @@ local function startAutoParry()
         rootPart = character:FindFirstChild("HumanoidRootPart")
         if not rootPart then return end
 
-        local balls = findBalls()
-        for _, ball in pairs(balls) do
+        for _, ball in pairs(findBalls()) do
             if distanceTo(ball) <= PARRY_DISTANCE then
                 doParry()
                 break
